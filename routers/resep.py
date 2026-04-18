@@ -1,9 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db
 from models.resep import Resep
 from schemas.resep import ResepCreate, ResepResponse
+from auth.jwt import verify_token
 from typing import List
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    payload = verify_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Token tidak valid")
+    return payload
 
 router = APIRouter(
     prefix="/resep",
@@ -11,7 +21,7 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=ResepResponse, status_code=201)
-def buat_resep(resep: ResepCreate, db: Session = Depends(get_db)):
+def buat_resep(resep: ResepCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     resep_baru = Resep(**resep.dict(), user_id=1)
     db.add(resep_baru)
     db.commit()
